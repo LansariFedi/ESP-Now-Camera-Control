@@ -22,19 +22,46 @@ void setupWiFi(const char* ssid, const char* password) {
   Serial.println("IP address: ");
   Serial.println(WiFi.localIP());
 
-  // Force the Wi-Fi channel back to the ESP-NOW channel
-  esp_wifi_set_promiscuous(true);  // Enable promiscuous mode
-  esp_wifi_set_channel(ESPNOW_WIFI_CHANNEL, WIFI_SECOND_CHAN_NONE);  // Set the channel
-  esp_wifi_set_promiscuous(false);  // Disable promiscuous mode
+  esp_wifi_set_promiscuous(true);
+  esp_wifi_set_channel(ESPNOW_WIFI_CHANNEL, WIFI_SECOND_CHAN_NONE);
+  esp_wifi_set_promiscuous(false);
 }
 
 void setupWebServer() {
   server.on("/", []() {
-    server.send(200, "text/plain", "Hello from ESP32!");
+    String html = R"rawliteral(
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>ESP32 Camera</title>
+        <style>
+          body { font-family: Arial, sans-serif; text-align: center; margin: 0; padding: 0; }
+          img { max-width: 100%; height: auto; }
+        </style>
+      </head>
+      <body>
+        <h1>ESP32 Camera</h1>
+        <img id="capturedImage" src="/capture" alt="Captured Image" />
+        <script>
+          setInterval(() => {
+            const img = document.getElementById('capturedImage');
+            img.src = '/capture?timestamp=' + new Date().getTime();
+          }, 5000);
+        </script>
+      </body>
+      </html>
+    )rawliteral";
+
+    server.send(200, "text/html", html);
   });
 
   server.on("/capture", []() {
-    captureAndServeImage("capture", server); // Pass the server object
+    serveLastCapturedImage(server);
+  });
+
+  server.on("/capture/new", []() {
+    captureImage();
+    server.send(200, "text/plain", "New image captured.");
   });
 
   server.begin();

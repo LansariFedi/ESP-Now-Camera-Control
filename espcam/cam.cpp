@@ -4,11 +4,9 @@
 
 #define CAM_WIDTH 160
 #define CAM_HEIGHT 120
-#define MOTION_THRESHOLD 25    
-#define CHANGE_LIMIT 1000       
 
-static uint8_t previousFrame[CAM_WIDTH * CAM_HEIGHT];
-static int lastMotionScore = 0;
+static uint8_t* lastCapturedImage = nullptr; 
+static size_t lastCapturedImageSize = 0;
 
 bool initCamera() {
     camera_config_t config;
@@ -33,7 +31,7 @@ bool initCamera() {
     config.xclk_freq_hz = 20000000;
     config.pixel_format = PIXFORMAT_JPEG;
 
-    if(psramFound()){
+    if (psramFound()) {
         config.frame_size = FRAMESIZE_QQVGA;
         config.jpeg_quality = 12;
         config.fb_count = 2;
@@ -46,24 +44,44 @@ bool initCamera() {
     return err == ESP_OK;
 }
 
-void captureAndServeImage(const String& command, WebServer& server) {
-    if (command == "capture") {
-        camera_fb_t* fb = esp_camera_fb_get();
-        if (!fb) {
-            Serial.println("Camera capture failed");
-            server.send(500, "text/plain", "Camera capture failed");
-            return;
-        }
+void captureImage() {
+    if (lastCapturedImage) {
+        free(lastCapturedImage);
+        lastCapturedImage = nullptr;
+        lastCapturedImageSize = 0;
+    }
 
+    // Capture a new image
+    camera_fb_t* fb = esp_camera_fb_get();
+    if (!fb) {
+        Serial.println("Camera capture failed");
+        return;
+    }
+
+    // Allocate memory for the new image
+    lastCapturedImage = (uint8_t*)malloc(fb->len);
+    if (lastCapturedImage) {
+        memcpy(lastCapturedImage, fb->buf, fb->len);
+        lastCapturedImageSize = fb->len;
+        Serial.println("Image captured and stored.");
+    } else {
+        Serial.println("Failed to allocate memory for the captured image.");
+    }
+
+    esp_camera_fb_return(fb);
+}
+
+void serveLastCapturedImage(WebServer& server) {
+    if (lastCapturedImage && lastCapturedImageSize > 0) {
         // Send HTTP headers
         server.sendHeader("Content-Disposition", "inline; filename=capture.jpg");
-        server.setContentLength(fb->len); // Set the content length
-        server.send(200, "image/jpeg", ""); // Send the headers
+        server.setContentLength(lastCapturedImageSize);  
+        server.send(200, "image/jpeg", "");
 
-        // Write the image data directly to the client
-        server.client().write(fb->buf, fb->len);
-
-        esp_camera_fb_return(fb);
-        Serial.println("Image captured and served.");
+        server.client().write(lastCapturedImage, lastCapturedImageSize);
+        //Serial.println("Last captured image served.");
+    } else {
+        server.send(404, "text/plain", "No image available. Please capture an image first.");
+        //Serial.println("No image available to serve.");
     }
 }

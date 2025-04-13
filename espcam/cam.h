@@ -6,6 +6,7 @@
 #include <WebServer.h>
 
 bool initCamera();
-void captureAndServeImage(const String& command, WebServer& server); // Updated declaration
+void captureImage();
+void serveLastCapturedImage(WebServer& server); 
 
 #endif
