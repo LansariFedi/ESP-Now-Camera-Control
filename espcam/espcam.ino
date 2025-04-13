@@ -8,8 +8,8 @@
 #include "web.h"
 #include "cam.h"
 
-const char* ssid = "TOPNET_VSKC";
-const char* password = "a47qhmlwxy";
+const char* ssid = "your_ssid";
+const char* password = "your_password";
 
 #define COMMAND_BUFFER_SIZE 128
 char command[COMMAND_BUFFER_SIZE] = {0};
