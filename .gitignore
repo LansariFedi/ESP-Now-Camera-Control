@@ -33,4 +33,4 @@
 
 
 # Personalized
-*.vscode
+.vscode/
